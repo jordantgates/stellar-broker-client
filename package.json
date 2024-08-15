@@ -17,8 +17,7 @@
   "author": "",
   "license": "MIT",
   "peerDependencies": {
-    "@stellar/stellar-base": ">=11",
-    "ws": "^8.17.1"
+    "@stellar/stellar-base": ">=11"
   },
   "devDependencies": {
     "@babel/core": "^7.24.8",
@@ -27,6 +26,7 @@
     "jest": "^29.7.0",
     "typescript": "^5.5.4",
     "webpack": "^5.93.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "ws": "^8.17.1"
   }
 }
