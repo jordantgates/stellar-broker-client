@@ -10,6 +10,10 @@ npm i @stellar-broker/client
 
 ### Example - Connect and trade in DirectFlow mode
 
+This flow is suitable for the majority of scenarios when a user plans to swap assets.
+It might consume more resources on the client side since the client keeps an open connection and constantly receives
+price quote updates from the server.
+
 ```js
 import StellarBrokerClient from '@stellar-broker/client'
 
@@ -19,8 +23,7 @@ const client = new StellarBrokerClient({partnerKey: '<your_partner_key>'})
 //subscribe to the quote notifications
 client.on('quote', e => {
     console.log('Received quote from the server', e.quote)
-    /*
-    {
+    /*{
       "status": "success",
       "sellingAsset": "USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
       "buyingAsset": "XLM",
@@ -34,29 +37,24 @@ client.on('quote', e => {
       "sellingAmount": "10",
       "estimatedBuyingAmount": "100.688121",
       "ts": "2024-08-13T23:13:21.275Z"
-    }
-    */
+    }*/
 })
 
 client.on('finished', e => {
     console.log('Trade finished', e.result)
-    /*
-    {
+    /*{
       "status": "success",
       "sold": "10",
       "bought": "100.6704597"
-    }    
-    */
+    }*/
 })
 
 client.on('progress', e => {
     console.log('Progress', e.status)
-    /*
-    {
+    /*{
       "sold": "10",
       "bought": "100.6704597"
-    }
-    */
+    }*/
 })
 
 client.on('error', e => {
@@ -70,23 +68,40 @@ client.connect() //only once
 
 //request a price quote
 client.quote({
-    destination: '<account_pubkey>', //trader account pubkey
     sellingAsset: 'xlm',
     buyingAsset: 'USD-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
-    sellingAmount: '1000', //1000.0000000
+    sellingAmount: '1000', //1000.0000000 XLM
     slippageTolerance: 0.02 //2%
 })
 
 //once the quote received from the server, we can confirm the quote
-client.confirmQuote(async (tx) => { //async signing callback - implement custom logic here
+async function signTx(tx) { //async signing callback - implement custom logic here
     const kp = Keypair.fromSecret('<account_secret>')
     tx.sign(kp)
     return tx
-})
+}
+client.confirmQuote('<account_address>', signTx) //provide trader account address
 
 //trade can be interrupted from the client by calling
 client.stop()
 
 //cleanup resources and close connection once the trading has been finished
 client.close()
+```
+
+### Example - Get swap estimate without trading
+
+Swap estimate may be handy in scenarios when the client has no intention to trade or receive price quote updates in
+streaming mode, and just want to get a single price quote.
+
+```js
+import StellarBrokerClient from '@stellar-broker/client'
+
+StellarBrokerClient.estimateSwap({
+    sellingAsset: 'xlm',
+    buyingAsset: 'USD-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
+    sellingAmount: '1000', 
+    slippageTolerance: 0.02 //2%
+})
+
 ```

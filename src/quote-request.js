@@ -28,9 +28,6 @@ export function validateQuoteRequest(params) {
         slippageTolerance: parseSlippageTolerance(slippageTolerance || slippage_tolerance || 0.02, 'slippageTolerance'),
         flow: 'direct'
     }
-    if (destination) {
-        res.destination = validateAccount(destination, 'destination', true)
-    }
     if (res.buyingAsset === res.sellingAsset)
         throw errors.invalidQuoteParam('buyingAsset', 'Buying asset can\'t be the same as selling asset')
     if (res.buyingAmount === undefined && res.sellingAmount === undefined)
@@ -38,6 +35,7 @@ export function validateQuoteRequest(params) {
     if (res.buyingAmount !== undefined && res.sellingAmount !== undefined)
         throw errors.invalidQuoteParam('sellingAmount', 'Parameters "buyingAmount" and "sellingAmount" are mutually exclusive')
     Object.assign(res, other) //add remaining optional params
+    Object.freeze(res)
     return res
 }
 
@@ -63,15 +61,13 @@ function parseAsset(asset, parameter) {
 
 function validateCode(code, parameter) {
     if (!/^[a-zA-Z0-9]{1,12}$/.test(code))
-        throw errors.invalidQuoteParam(parameter, 'Invalid asset code: ' + (code === undefined ? 'missing' : code))
+        throw errors.invalidQuoteParam(parameter, 'Invalid asset code: ' + (!code ? 'missing' : code))
     return code
 }
 
-function validateAccount(account, param, optional = false) {
-    if (account === undefined && optional)
-        return undefined
-    if (!StrKey.isValidEd25519PublicKey(account))
-        throw errors.invalidQuoteParam(param, 'Invalid account address: ' + (account === undefined ? 'missing' : account))
+function validateAccount(account, param) {
+    if (!account || !StrKey.isValidEd25519PublicKey(account))
+        throw errors.invalidQuoteParam(param, 'Invalid account address: ' + (!account ? 'missing' : account))
     return account
 }
 

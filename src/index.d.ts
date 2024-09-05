@@ -38,9 +38,10 @@ export default class StellarBrokerClient {
 
     /**
      * Confirm current quote and start trading
+     * @param {string} account - Trader account address
      * @param {string|ClientAuthorizationCallback} authorization - Authorization method, either account secret key or an authorization callback
      */
-    confirmQuote(authorization: string | ClientAuthorizationCallback): void;
+    confirmQuote(account: string, authorization: string | ClientAuthorizationCallback): void;
 
     /**
      * Add event listener
@@ -62,6 +63,7 @@ export default class StellarBrokerClient {
      * @param {function} callback
      */
     off(type: StellarBrokerClientEvent, callback: Function): void;
+
     /**
      * Close underlying connection and finalize the client
      */
@@ -94,14 +96,6 @@ export interface SwapQuoteParams {
 
 export interface ClientInitializationParams {
     /**
-     * Trader account public key
-     */
-    account: string;
-    /**
-     * Stellar network identifier or passphrase (pubnet by default)
-     */
-    network?: string;
-    /**
      * Partner key
      */
     partnerKey?: string;
@@ -109,11 +103,15 @@ export interface ClientInitializationParams {
      * Swap flow mode
      */
     flow?: SwapFlowMode;
+    /**
+     * Stellar network identifier or passphrase (pubnet by default)
+     */
+    network?: string;
 }
 
 export type ClientStatus = "disconnected" | "ready" | "quote" | "trade";
 
-export type StellarBrokerClientEvent = "quote" | "finished" | "progress";
+export type StellarBrokerClientEvent = "quote" | "finished" | "progress" | "error";
 
 export type SwapFlowMode = "direct";
 
@@ -127,6 +125,13 @@ export interface SwapQuoteResult {
     estimatedBuyingAmount?: string;
     buyingAmount?: string;
     estimatedSellingAmount?: string;
+    directTrade?: SwapQuoteDirectTradeResult;
+}
+
+export interface SwapQuoteDirectTradeResult {
+    selling: string;
+    buying: string;
+    path: string[];
 }
 
 export class StellarBrokerError extends Error {

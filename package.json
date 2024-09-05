@@ -1,6 +1,6 @@
 {
   "name": "@stellar-broker/client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser client library for StellarBroker",
   "type": "module",
   "main": "lib/index.js",

@@ -1,18 +1,17 @@
-import {Networks, TransactionBuilder, Keypair, FeeBumpTransaction} from '@stellar/stellar-base'
+import {Networks, TransactionBuilder, Keypair, FeeBumpTransaction, StrKey} from '@stellar/stellar-base'
 import errors from './errors.js'
 import {buildEvent} from './events.js'
 import {validateQuoteRequest} from './quote-request.js'
+import {estimateSwap} from './estimate.js'
 
 export default class StellarBrokerClient {
     /**
      * @param {ClientInitializationParams} params
      */
     constructor(params) {
-        if (!params.network)
-            throw errors.invalidInitParam('network')
         this.partnerKey = params.partnerKey
         this.emitter = new EventTarget()
-        this.network = Networks[params.network.toUpperCase()] || params.network
+        this.network = Networks[(params.network || 'PUBLIC').toUpperCase()] || params.network
         this.flow = params.flow || 'direct'
     }
 
@@ -45,7 +44,7 @@ export default class StellarBrokerClient {
     /**
      * Last quote request submitted by the client
      * @type {SwapQuoteParams}
-     * @private
+     * @readonly
      */
     quoteRequest
     /**
@@ -62,7 +61,7 @@ export default class StellarBrokerClient {
     /**
      * API key of the partner
      * @type {string}
-     * @private
+     * @readonly
      */
     partnerKey
     /**
@@ -75,10 +74,9 @@ export default class StellarBrokerClient {
     /**
      * Trader account public key
      * @type {string}
+     * @readonly
      */
-    get source() {
-        return this.quoteRequest?.destination
-    }
+    source
 
     /**
      * Connect to the StellarBroker server
@@ -142,6 +140,8 @@ export default class StellarBrokerClient {
                     bought: raw.bought
                 }, 'result'))
                 this.status = 'ready'
+                this.tradeQuote = undefined
+                this.source = undefined
                 break
             case 'progress':
                 this.emitter.dispatchEvent(buildEvent('progress', {
@@ -191,14 +191,16 @@ export default class StellarBrokerClient {
             type: 'stop'
         })
         this.tradeQuote = undefined
+        this.source = undefined
         this.status = 'ready'
     }
 
     /**
      * Confirm current quote and start trading
+     * @param {string} account - Trader account address
      * @param {string|ClientAuthorizationCallback} authorization - Authorization method, either account secret key or an authorization callback
      */
-    confirmQuote(authorization) {
+    confirmQuote(account, authorization) {
         if (this.status !== 'quote')
             throw errors.tradeInProgress()
         if (!this.lastQuote)
@@ -207,6 +209,8 @@ export default class StellarBrokerClient {
             throw errors.quoteExpired()
         if (this.lastQuote.status !== 'success')
             throw errors.quoteError(this.lastQuote.error || 'quote not available')
+        if (!account || !StrKey.isValidEd25519PublicKey(account))
+            throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!account ? 'missing' : account))
         if (typeof authorization === 'string') {
             try {
                 this.authorization = Keypair.fromSecret(authorization)
@@ -217,8 +221,10 @@ export default class StellarBrokerClient {
             this.authorization = authorization
         }
         this.tradeQuote = this.lastQuote
+        this.source = account
         this.send({
-            type: 'trade'
+            type: 'trade',
+            account
         })
         this.status = 'trade'
     }
@@ -365,6 +371,15 @@ export default class StellarBrokerClient {
             this.socket.close()
         } catch (e) {
         }
+    }
+
+    /**
+     * Request single swap quote estimate without trading
+     * @param {SwapQuoteParams} params - Quote parameters
+     * @return {Promise<SwapQuoteResult>}
+     */
+    static estimateSwap(params) {
+        return estimateSwap(params)
     }
 }
 
