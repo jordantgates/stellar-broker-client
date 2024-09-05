@@ -95,9 +95,9 @@ Swap estimate may be handy in scenarios when the client has no intention to trad
 streaming mode, and just want to get a single price quote.
 
 ```js
-import StellarBrokerClient from '@stellar-broker/client'
+import {estimateSwap} from '@stellar-broker/client'
 
-StellarBrokerClient.estimateSwap({
+estimateSwap({
     sellingAsset: 'xlm',
     buyingAsset: 'USD-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
     sellingAmount: '1000', 

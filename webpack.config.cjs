@@ -6,7 +6,7 @@ module.exports = function () {
         mode: 'production',
         devtool: 'source-map',
         entry: {
-            stellarbroker: [path.join(__dirname, '/src/index.js')]
+            stellarbroker: [path.join(__dirname, '/src/cjs.js')]
         },
         output: {
             path: path.join(__dirname, './lib'),

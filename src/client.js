@@ -2,7 +2,6 @@ import {Networks, TransactionBuilder, Keypair, FeeBumpTransaction, StrKey} from 
 import errors from './errors.js'
 import {buildEvent} from './events.js'
 import {validateQuoteRequest} from './quote-request.js'
-import {estimateSwap} from './estimate.js'
 
 export default class StellarBrokerClient {
     /**
@@ -371,15 +370,6 @@ export default class StellarBrokerClient {
             this.socket.close()
         } catch (e) {
         }
-    }
-
-    /**
-     * Request single swap quote estimate without trading
-     * @param {SwapQuoteParams} params - Quote parameters
-     * @return {Promise<SwapQuoteResult>}
-     */
-    static estimateSwap(params) {
-        return estimateSwap(params)
     }
 }
 

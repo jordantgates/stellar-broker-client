@@ -70,6 +70,11 @@ export default class StellarBrokerClient {
     close(): void;
 }
 
+/**
+ * Request single swap quote estimate without trading
+ */
+export function estimateSwap(params: SwapQuoteParams): Promise<SwapQuoteResult>;
+
 export interface SwapQuoteParams {
     /**
      * Asset to sell

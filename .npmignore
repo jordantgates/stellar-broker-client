@@ -5,4 +5,5 @@ pnpm-lock.yaml
 
 test
 babel.config.cjs
-webpack.config.cj
+webpack.config.cjs
+src/cjs.js
