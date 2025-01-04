@@ -8,10 +8,9 @@ npm i @stellar-broker/client
 
 ## Usage
 
-### Example - Connect and trade in DirectFlow mode
+### Example - connect and trade with StellarBroker
 
-This flow is suitable for the majority of scenarios when a user plans to swap assets.
-It might consume more resources on the client side since the client keeps an open connection and constantly receives
+The client connects to the router server, keeps an open connection and constantly receives
 price quote updates from the server.
 
 ```js
@@ -22,7 +21,7 @@ const client = new StellarBrokerClient({partnerKey: '<your_partner_key>'})
 
 //subscribe to the quote notifications
 client.on('quote', e => {
-    console.log('Received quote from the server', e.quote)
+    console.log('Received route quote from the server', e.quote)
     /*{
       "status": "success",
       "sellingAsset": "USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
@@ -38,6 +37,10 @@ client.on('quote', e => {
       "estimatedBuyingAmount": "100.688121",
       "ts": "2024-08-13T23:13:21.275Z"
     }*/
+})
+
+client.on('paused', e => {
+    console.log('Quotation paused due to inactivity. Call `quote` method to resume.')
 })
 
 client.on('finished', e => {
@@ -92,7 +95,7 @@ client.close()
 ### Example - Get swap estimate without trading
 
 Swap estimate may be handy in scenarios when the client has no intention to trade or receive price quote updates in
-streaming mode, and just want to get a single price quote.
+streaming mode, and just wants to get a single price quote.
 
 ```js
 import {estimateSwap} from '@stellar-broker/client'

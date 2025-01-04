@@ -1,7 +1,8 @@
-import {Networks, TransactionBuilder, Keypair, FeeBumpTransaction, StrKey} from '@stellar/stellar-base'
+import {Networks, Keypair, TransactionI, StrKey} from '@stellar/stellar-sdk'
 import errors from './errors.js'
 import {buildEvent} from './events.js'
 import {validateQuoteRequest} from './quote-request.js'
+import {processTxRequest} from './tx-processor.js'
 
 export default class StellarBrokerClient {
     /**
@@ -12,8 +13,25 @@ export default class StellarBrokerClient {
         this.emitter = new EventTarget()
         this.network = Networks[(params.network || 'PUBLIC').toUpperCase()] || params.network
         this.flow = params.flow || 'direct'
+        if (!params.account || !StrKey.isValidEd25519PublicKey(params.account))
+            throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!params.account ? 'missing' : params.account))
+        this.trader = params.account
+        if (typeof params.authorization === 'string') {
+            try {
+                this.authorization = Keypair.fromSecret(params.authorization)
+            } catch (e) {
+                throw errors.invalidAuthorizationParam()
+            }
+        } else if (typeof params.authorization === 'function') {
+            this.authorization = params.authorization
+        }
     }
 
+    /**
+     * @type {string}
+     * @private
+     */
+    uid
     /**
      * @type {ClientStatus}
      * @readonly
@@ -69,13 +87,12 @@ export default class StellarBrokerClient {
      * @private
      */
     authorization
-
     /**
      * Trader account public key
      * @type {string}
      * @readonly
      */
-    source
+    trader
 
     /**
      * Connect to the StellarBroker server
@@ -84,12 +101,14 @@ export default class StellarBrokerClient {
     connect() {
         if (this.socket?.readyState === WebSocket.OPEN)
             return Promise.resolve(this) //already opened
-
         this.socket = new WebSocket(this.origin + '/ws?partner=' + encodeURIComponent(this.partnerKey))
         this.socket.onmessage = this.processMessage.bind(this)
         this.socket.onclose = () => {
+            if (this.status !== 'disconnected') {
+                this.status = 'disconnected'
+                this.notifyError(errors.notConnected())
+            }
             console.log('Connection closed')
-            this.status = 'disconnected'
         }
 
         this.socket.onerror = e => console.error(e)
@@ -115,8 +134,12 @@ export default class StellarBrokerClient {
         const raw = JSON.parse(message.data)
         switch (raw.type) {
             case 'connected':
+                this.uid = raw.uid
                 if (this.onSocketOpen) {
                     this.onSocketOpen()
+                }
+                if (this.status === 'disconnected') {
+                    this.status = 'ready'
                 }
                 break
             case 'quote':
@@ -125,12 +148,24 @@ export default class StellarBrokerClient {
                 //send event to the client app
                 this.emitter.dispatchEvent(buildEvent('quote', this.lastQuote))
                 break
+            case 'paused':
+                //quotation paused due to inactivity
+                this.emitter.dispatchEvent(buildEvent('paused', {}))
+                break
             case 'tx':
                 if (this.status !== 'trade') {
                     console.log('Received tx in non-trading state', this.status, raw)
                     return //skip unless trading is in progress
                 }
-                this.processTxRequest(raw)
+                processTxRequest(this, raw)
+                    .then(xdr => {
+                        this.send({
+                            type: 'tx',
+                            hash: raw.hash,
+                            xdr
+                        })
+                    })
+                    .catch(e => this.notifyError(e))
                 break
             case 'stop':
                 this.emitter.dispatchEvent(buildEvent('finished', {
@@ -140,7 +175,6 @@ export default class StellarBrokerClient {
                 }, 'result'))
                 this.status = 'ready'
                 this.tradeQuote = undefined
-                this.source = undefined
                 break
             case 'progress':
                 this.emitter.dispatchEvent(buildEvent('progress', {
@@ -149,12 +183,14 @@ export default class StellarBrokerClient {
                 }, 'status'))
                 break
             case 'ping':
-                this.heartbeat()
-                this.send({type: 'pong'})
+                if (raw.uid === this.uid) {
+                    this.heartbeat()
+                    this.send({type: 'pong', uid: this.uid})
+                }
                 break
             case 'error':
                 this.stop()
-                this.emitter.dispatchEvent(buildEvent('error', 'Server error: ' + raw.error))
+                this.notifyError(raw.error)
                 break
             default:
                 console.log('Unknown message type: ' + raw.type)
@@ -173,11 +209,32 @@ export default class StellarBrokerClient {
         this.status = 'quote'
         this.connect()
             .then(() => {
+                this.status = 'quote'
                 this.send({
                     type: 'quote',
                     ...this.quoteRequest
                 })
             })
+    }
+
+    confirmQuote() {
+        if (this.status === 'disconnected')
+            throw errors.notConnected()
+        if (this.status === 'trade')
+            throw errors.tradeInProgress()
+        if (this.status !== 'quote' || !this.lastQuote)
+            throw errors.quoteNotSet()
+        if ((new Date() - this.lastQuote.ts) > 7000) //do not allow stale quotes quoted more than 7s ago
+            throw errors.quoteExpired()
+        if (this.lastQuote.status !== 'success')
+            throw errors.quoteError(this.lastQuote.error || 'quote not available')
+
+        this.tradeQuote = this.lastQuote
+        this.send({
+            type: 'trade',
+            account: this.trader
+        })
+        this.status = 'trade'
     }
 
     /**
@@ -186,131 +243,9 @@ export default class StellarBrokerClient {
     stop() {
         if (this.status !== 'trade' && this.status !== 'quote')
             return
-        this.send({
-            type: 'stop'
-        })
+        this.send({type: 'stop'})
         this.tradeQuote = undefined
-        this.source = undefined
         this.status = 'ready'
-    }
-
-    /**
-     * Confirm current quote and start trading
-     * @param {string} account - Trader account address
-     * @param {string|ClientAuthorizationCallback} authorization - Authorization method, either account secret key or an authorization callback
-     */
-    confirmQuote(account, authorization) {
-        if (this.status !== 'quote')
-            throw errors.tradeInProgress()
-        if (!this.lastQuote)
-            throw errors.quoteNotSet()
-        if ((new Date() - this.lastQuote.ts) > 7000) //do not allow stale quotes quoted more than 7s ago
-            throw errors.quoteExpired()
-        if (this.lastQuote.status !== 'success')
-            throw errors.quoteError(this.lastQuote.error || 'quote not available')
-        if (!account || !StrKey.isValidEd25519PublicKey(account))
-            throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!account ? 'missing' : account))
-        if (typeof authorization === 'string') {
-            try {
-                this.authorization = Keypair.fromSecret(authorization)
-            } catch (e) {
-                throw errors.invalidAuthorizationParam()
-            }
-        } else if (typeof authorization === 'function') {
-            this.authorization = authorization
-        }
-        this.tradeQuote = this.lastQuote
-        this.source = account
-        this.send({
-            type: 'trade',
-            account
-        })
-        this.status = 'trade'
-    }
-
-    /**
-     * @param {{xdr: string, hash: string}} raw
-     * @private
-     */
-    processTxRequest(raw) {
-        //parse incoming transaction
-        let tx
-        try {
-            tx = TransactionBuilder.fromXDR(raw.xdr, this.network)
-        } catch (e) {
-            throw errors.invalidSwapTx()
-        }
-        //check that transaction is correct
-        if (!this.validateTransaction(tx))
-            throw errors.invalidSwapTx()
-        //sign transaction
-        this.authorizeTx(tx, raw.networkFee)
-            .then(tx => {
-                if (!tx || tx.signatures.length < 1)
-                    return console.error(`Transaction ${raw.hash} not signed`)
-                //respond with signed transaction
-                this.send({
-                    type: 'tx',
-                    hash: raw.hash,
-                    xdr: tx.toXDR()
-                })
-            })
-            .catch(e => {
-                console.error(e)
-                throw errors.failedToSignTx()
-            })
-    }
-
-    /**
-     * @param {Transaction} tx
-     * @param {string} networkFee
-     * @return {Promise<FeeBumpTransaction>}
-     * @private
-     */
-    async authorizeTx(tx, networkFee) {
-        //sign tx
-        if (this.authorization instanceof Keypair) {
-            tx.sign(this.authorization)
-        } else {
-            tx = await ensurePromise(this.authorization(tx))
-        }
-        //wrap with fee bump
-        let wrapped = TransactionBuilder.buildFeeBumpTransaction(this.source, networkFee, tx, this.network)
-        //sign fee bump wrapper tx
-        if (this.authorization instanceof Keypair) {
-            wrapped.sign(this.authorization)
-        } else {
-            wrapped = await ensurePromise(this.authorization(wrapped))
-        }
-        return wrapped
-    }
-
-    /**
-     * @param {Transaction} tx
-     * @throws {StellarBrokerError} Invalid swap transaction received
-     */
-    validateTransaction(tx) {
-        /*if (!(tx instanceof FeeBumpTransaction))
-            return false
-        const {innerTransaction} = tx
-        if (tx.feeSource !== this.source)
-            return false*/
-        for (let swap of tx.operations) {
-            if (swap.type !== 'pathPaymentStrictSend' && swap.type !== 'pathPaymentStrictReceive')
-                return false
-            const isFee = swap.destination !== this.source
-            if (isFee) {
-                if (swap.type !== 'pathPaymentStrictSend')
-                    return false
-                if ((swap.source && swap.source !== this.source))
-                    return false
-            } else {
-                if ((swap.source && swap.source !== swap.destination) || swap.destination !== this.source)
-                    return false
-            }
-        }
-        //TODO: check assets and amounts
-        return true
     }
 
     /**
@@ -321,12 +256,15 @@ export default class StellarBrokerClient {
         this.socket.send(JSON.stringify(data))
     }
 
+    /**
+     * @private
+     */
     heartbeat() {
         clearTimeout(this.pingHandler)
         this.pingHandler = setTimeout(() => {
             console.warn('Lost connection with the server')
             this.socket.close()
-        }, 11_000) // 11 seconds heartbeat timeout
+        }, 7_000) // 7 seconds heartbeat timeout
     }
 
     /**
@@ -335,8 +273,7 @@ export default class StellarBrokerClient {
      * @param {function} callback
      */
     on(type, callback) {
-        if (!StellarBrokerEvents.includes(type))
-            throw errors.unsupportedEventType(type)
+        validateEventType(type)
         this.emitter.addEventListener(type, callback)
     }
 
@@ -346,8 +283,7 @@ export default class StellarBrokerClient {
      * @param {function} callback
      */
     once(type, callback) {
-        if (!StellarBrokerEvents.includes(type))
-            throw errors.unsupportedEventType(type)
+        validateEventType(type)
         this.emitter.addEventListener(type, callback, {once: true})
     }
 
@@ -357,8 +293,7 @@ export default class StellarBrokerClient {
      * @param {function} callback
      */
     off(type, callback) {
-        if (!StellarBrokerEvents.includes(type))
-            throw errors.unsupportedEventType(type)
+        validateEventType(type)
         this.emitter.removeEventListener(type, callback)
     }
 
@@ -367,28 +302,40 @@ export default class StellarBrokerClient {
      */
     close() {
         try {
+            this.status = 'disconnected'
             this.socket.close()
         } catch (e) {
         }
     }
-}
 
-export const StellarBrokerEvents = ['quote', 'finished', 'progress', 'error']
-
-function ensurePromise(callResult) {
-    if (!callResult instanceof Promise) {
-        if (callResult)
-            return Promise.resolve(callResult)
-        return Promise.reject()
+    /**
+     * @param {Error} e
+     * @private
+     */
+    notifyError(e) {
+        console.error(e)
+        try {
+            this.emitter.dispatchEvent(buildEvent('error', e instanceof Error ? e.message : e))
+        } catch (e) {
+            console.error(e)
+        }
     }
-    return callResult
 }
+
+function validateEventType(type) {
+    if (!StellarBrokerEvents.includes(type))
+        throw errors.unsupportedEventType(type)
+}
+
+export const StellarBrokerEvents = ['quote', 'paused', 'progress', 'finished', 'error']
 
 /**
  * @typedef {object} ClientInitializationParams
  * @property {string} [network] - Stellar network identifier or passphrase
  * @property {string} [partnerKey] - Partner key
  * @property {SwapFlowMode} [flow] - Swap flow mode
+ * @property {string} account - Trader account address
+ * @property {string|ClientAuthorizationCallback} authorization - Authorization method, either account secret key or an authorization callback
  */
 
 /**
@@ -396,7 +343,7 @@ function ensurePromise(callResult) {
  */
 
 /**
- * @typedef {'quote'|'finished'|'progress'|'error'} StellarBrokerClientEvent
+ * @typedef {'quote'|'paused'|'progress'|'finished'|'error'} StellarBrokerClientEvent
  */
 
 /**
@@ -418,5 +365,5 @@ function ensurePromise(callResult) {
  */
 
 /**
- * @typedef {function(FeeBumpTransaction):Promise<FeeBumpTransaction>} ClientAuthorizationCallback
+ * @typedef {function(TransactionI|Buffer):Promise<TransactionI|Buffer>} ClientAuthorizationCallback
  */

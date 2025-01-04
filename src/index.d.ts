@@ -1,3 +1,5 @@
+import {FeeBumpTransaction} from "@stellar/stellar-sdk";
+
 export default class StellarBrokerClient {
     /**
      * @param {ClientInitializationParams} params
@@ -149,4 +151,3 @@ export class StellarBrokerError extends Error {
 }
 
 export type ClientAuthorizationCallback = (arg0: FeeBumpTransaction) => Promise<FeeBumpTransaction>;
-import {FeeBumpTransaction} from "@stellar/stellar-base";

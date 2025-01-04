@@ -1,5 +1,6 @@
-import {StrKey} from '@stellar/stellar-base'
+import {StrKey} from '@stellar/stellar-sdk'
 import errors from './errors.js'
+import {parseAsset} from './asset.js'
 
 /**
  * @typedef {object} SwapQuoteParams
@@ -37,38 +38,6 @@ export function validateQuoteRequest(params) {
     Object.assign(res, other) //add remaining optional params
     Object.freeze(res)
     return res
-}
-
-function parseAsset(asset, parameter) {
-    if (typeof asset === 'string') {
-        if (asset === 'XLM' || asset === 'xlm' || asset === 'native')
-            return 'XLM'
-        if (asset.includes(':')) {
-            const [code, issuer] = asset.split(':')
-            validateCode(code)
-            validateAccount(issuer, parameter)
-            return code + '-' + issuer
-        }
-        if (asset.includes('-')) {
-            const [code, issuer] = asset.split('-')
-            validateCode(code)
-            validateAccount(issuer, parameter)
-            return asset
-        }
-    }
-    throw errors.invalidQuoteParam(parameter, 'Invalid asset')
-}
-
-function validateCode(code, parameter) {
-    if (!/^[a-zA-Z0-9]{1,12}$/.test(code))
-        throw errors.invalidQuoteParam(parameter, 'Invalid asset code: ' + (!code ? 'missing' : code))
-    return code
-}
-
-function validateAccount(account, param) {
-    if (!account || !StrKey.isValidEd25519PublicKey(account))
-        throw errors.invalidQuoteParam(param, 'Invalid account address: ' + (!account ? 'missing' : account))
-    return account
 }
 
 function parseAmount(amount, parameter) {

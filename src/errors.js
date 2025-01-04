@@ -19,6 +19,9 @@ const errors = {
     invalidAuthorizationParam() {
         return new StellarBrokerError(2, 'Invalid authorization secret key or callback provided')
     },
+    notConnected() {
+        return new StellarBrokerError(3, 'Client not connected to the server')
+    },
     quoteNotSet() {
         return new StellarBrokerError(11, 'Price quote not available')
     },
@@ -28,14 +31,14 @@ const errors = {
     quoteError(message) {
         return new StellarBrokerError(13, 'Price quotation error: ' + message)
     },
-    invalidQuoteParam(invalidParamName, details) {
+    invalidQuoteParam(invalidParamName = 'asset', details) {
         return new StellarBrokerError(14, `Invalid quote request parameter: "${invalidParamName}". ${details}`)
     },
     tradeInProgress() {
         return new StellarBrokerError(20, 'Cannot change quote while trade is in progress')
     },
     invalidSwapTx() {
-        return new StellarBrokerError(21, 'Invalid swap transaction received')
+        return new StellarBrokerError(21, 'Invalid swap transaction received from the server')
     },
     failedToSignTx() {
         return new StellarBrokerError(22, 'Failed to sign received transaction')
@@ -44,7 +47,7 @@ const errors = {
         return new StellarBrokerError(31, 'Unknown event type: ' + type)
     },
     serverError(message) {
-        return new StellarBrokerError(101, 'Server error: ' + message)
+        return new StellarBrokerError(101, message)
     }
 }
 
