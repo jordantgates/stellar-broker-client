@@ -1,7 +1,10 @@
 {
   "name": "@stellar-broker/client",
-  "version": "0.4.0",
-  "description": "Browser client library for StellarBroker service",
+  "version": "0.4.1",
+  "description": "Client library for StellarBroker service",
+  "author": "team@stellar.broker",
+  "homepage": "https://stellar.broker",
+  "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
   "module": "src/index.js",
@@ -14,8 +17,6 @@
     "type": "git",
     "url": "https://github.com/stellar-broker/client"
   },
-  "author": "StellarBroker",
-  "license": "MIT",
   "peerDependencies": {
     "@stellar/stellar-sdk": ">=12"
   },
