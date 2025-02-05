@@ -1,5 +1,8 @@
-import {FeeBumpTransaction} from "@stellar/stellar-sdk";
+import {Asset, FeeBumpTransaction, TransactionI} from "@stellar/stellar-sdk";
 
+/**
+ * Client for StellarBroker service
+ */
 export default class StellarBrokerClient {
     /**
      * @param {ClientInitializationParams} params
@@ -10,7 +13,7 @@ export default class StellarBrokerClient {
      * Trader account public key
      * @type {string}
      */
-    readonly source: string;
+    readonly trader: string;
     /**
      * Stellar network passphrase
      * @type {string}
@@ -40,10 +43,8 @@ export default class StellarBrokerClient {
 
     /**
      * Confirm current quote and start trading
-     * @param {string} account - Trader account address
-     * @param {string|ClientAuthorizationCallback} authorization - Authorization method, either account secret key or an authorization callback
      */
-    confirmQuote(account: string, authorization: string | ClientAuthorizationCallback): void;
+    confirmQuote(): void;
 
     /**
      * Add event listener
@@ -91,11 +92,7 @@ export interface SwapQuoteParams {
      */
     sellingAmount?: string
     /**
-     * Amount of buying asset
-     */
-    buyingAmount?: string
-    /**
-     * Swap slippage tolerance (2% by default)
+     * Swap slippage tolerance (0.02 by default - 2%)
      */
     slippageTolerance?: number
 }
@@ -103,36 +100,56 @@ export interface SwapQuoteParams {
 
 export interface ClientInitializationParams {
     /**
+     * Trader account address
+     */
+    account: string;
+    /**
      * Partner key
      */
     partnerKey?: string;
     /**
-     * Swap flow mode
+     * Authorization method, either account secret key or an authorization callback
      */
-    flow?: SwapFlowMode;
-    /**
-     * Stellar network identifier or passphrase (pubnet by default)
-     */
-    network?: string;
+    authorization: ClientAuthorizationParams;
 }
 
 export type ClientStatus = "disconnected" | "ready" | "quote" | "trade";
 
-export type StellarBrokerClientEvent = "quote" | "finished" | "progress" | "error";
-
-export type SwapFlowMode = "direct";
+export type StellarBrokerClientEvent = "quote" | "progress" | "paused" | "finished" | "error";
 
 export interface SwapQuoteResult {
+    /**
+     * Quote timestamp formatted as ISO date
+     */
+    ts: string,
+    /**
+     * Asset to sell
+     */
     sellingAsset: string;
+    /**
+     * Asset to buy
+     */
     buyingAsset: string;
+    /**
+     * Swap slippage tolerance
+     */
     slippageTolerance: number;
-    destination: string;
-    ledger: number;
-    sellingAmount?: string;
+    /**
+     * Amount of the selling asset
+     */
+    sellingAmount: string;
+    /**
+     * Estimated amount of buyingAsset to receive
+     */
     estimatedBuyingAmount?: string;
-    buyingAmount?: string;
-    estimatedSellingAmount?: string;
+    /**
+     * Equivalent direct path_payment trade estimate
+     */
     directTrade?: SwapQuoteDirectTradeResult;
+    /**
+     * Error details from the server (for failed quotes)
+     */
+    error?: string;
 }
 
 export interface SwapQuoteDirectTradeResult {
@@ -150,4 +167,57 @@ export class StellarBrokerError extends Error {
     readonly code: number;
 }
 
-export type ClientAuthorizationCallback = (arg0: FeeBumpTransaction) => Promise<FeeBumpTransaction>;
+/**
+ * Async authorization callback for transactions and simulated auth entries
+ */
+export type ClientAuthorizationCallback = (txOrAuthEntry: TransactionI | Buffer) => Promise<TransactionI | Buffer>;
+
+/**
+ * Authorization method, either account secret key or an authorization callback
+ */
+export type ClientAuthorizationParams = string | ClientAuthorizationCallback;
+
+/**
+ * Trader mediator account wrapper
+ */
+export class Mediator {
+    /**
+     * Create a trader mediator account instance for a given source account
+     * @param source - Source account
+     * @param sellingAsset - Asset to sell
+     * @param buyingAsset - Asset to buy
+     * @param sellingAmount - Amount to sell
+     * @param authorization - Authorization callback or secret key
+     */
+    constructor(source: string, sellingAsset: string | Asset, buyingAsset: string | Asset, sellingAmount: string, authorization: ClientAuthorizationParams)
+
+    readonly source: string;
+
+    readonly sellingAsset: Asset;
+
+    readonly buyingAsset: Asset;
+
+    readonly sellingAmount: bigint;
+
+    readonly mediatorAddress: string;
+
+    /**
+     * Check if there are any non-disposed mediators that belong to lost swap sessions
+     */
+    get hasObsoleteMediators(): boolean;
+
+    /**
+     * Retrieve funds from mediator accounts that belong to lost swap sessions
+     */
+    disposeObsoleteMediators(): Promise<void>;
+
+    /**
+     * Create mediator account and deposit tokens to sell
+     */
+    init(): Promise<string>;
+
+    /**
+     * Dispose mediator account
+     */
+    dispose(address:string): Promise<void>;
+}
