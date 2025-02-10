@@ -16,7 +16,7 @@ notifications from the server without delays. Trading, retries, and results conf
 background.
 
 ```js
-import StellarBrokerClient from '@stellar-broker/client'
+import {StellarBrokerClient} from '@stellar-broker/client'
 
 //create client instance
 const client = new StellarBrokerClient({partnerKey: '<your_partner_key>'})

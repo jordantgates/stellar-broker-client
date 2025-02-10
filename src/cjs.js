@@ -1,6 +1,5 @@
-import StellarBrokerClient from './client.js'
+import {StellarBrokerClient} from './client.js'
 import {estimateSwap} from './estimate.js'
+import {Mediator} from './mediator.js'
 
-StellarBrokerClient.estimateSwap = estimateSwap
-
-export default StellarBrokerClient
+export {StellarBrokerClient, estimateSwap, Mediator}

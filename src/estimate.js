@@ -1,10 +1,11 @@
 import errors, {StellarBrokerError} from './errors.js'
 import {validateQuoteRequest} from './quote-request.js'
+import {QuoteResult} from './quote-result.js'
 
 /**
  * Request single swap quote estimate without trading
- * @param {SwapQuoteParams} params
- * @return {Promise<SwapQuoteResult>}
+ * @param {QuoteParams} params
+ * @return {Promise<QuoteResult>}
  */
 export async function estimateSwap(params) {
     const query = Object.entries(validateQuoteRequest(params))
@@ -15,7 +16,7 @@ export async function estimateSwap(params) {
         const res = await fetch(url).then(r => r.json())
         if (res.status !== 'success')
             throw errors.quoteError(res.error || 'Quote not available')
-        return res
+        return new QuoteResult(res)
     } catch (e) {
         if (e instanceof StellarBrokerError)
             throw e

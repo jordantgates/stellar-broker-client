@@ -2,7 +2,7 @@ import errors from './errors.js'
 import {parseAsset} from './asset.js'
 
 /**
- * @typedef {object} SwapQuoteParams
+ * @typedef {object} QuoteParams - Quote request parameters provided by the client
  * @property {string} sellingAsset - Asset to sell
  * @property {string} buyingAsset - Asset to buy
  * @property {string} [sellingAmount] - Amount of selling asset
@@ -10,8 +10,8 @@ import {parseAsset} from './asset.js'
  */
 
 /**
- * @param {SwapQuoteParams} params
- * @return {SwapQuoteParams}
+ * @param {QuoteParams} params
+ * @return {QuoteParams}
  */
 export function validateQuoteRequest(params) {
     const {
