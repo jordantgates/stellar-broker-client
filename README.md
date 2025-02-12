@@ -73,7 +73,7 @@ client.connect() //only once
 //request a price quote
 client.quote({
     sellingAsset: 'xlm',
-    buyingAsset: 'USD-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
+    buyingAsset: 'USDC-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
     sellingAmount: '1000', //1000.0000000 XLM
     slippageTolerance: 0.02 //2%
 })
@@ -108,7 +108,7 @@ import {estimateSwap} from '@stellar-broker/client'
 
 estimateSwap({
     sellingAsset: 'xlm',
-    buyingAsset: 'USD-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
+    buyingAsset: 'USDC-GDK2GNB4Q6FKNW2GNJIQFARI4RMSHV5DN5G4BBXX2F24RT5I4QT7TWZ7',
     sellingAmount: '1000', 
     slippageTolerance: 0.02 //2%
 })
