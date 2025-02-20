@@ -17,8 +17,6 @@ export class StellarBrokerClient {
         this.partnerKey = params.partnerKey
         this.emitter = new EventTarget()
         this.network = Networks.PUBLIC
-        if (!params.account || !StrKey.isValidEd25519PublicKey(params.account))
-            throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!params.account ? 'missing' : params.account))
         this.trader = params.account
         this.authorization = new AuthorizationWrapper(params.authorization)
     }
@@ -141,7 +139,7 @@ export class StellarBrokerClient {
             case 'quote':
                 this.lastQuote = new QuoteResult(raw.quote)
                 //send event to the client app
-                    this.emitter.dispatchEvent(buildEvent('quote', this.lastQuote))
+                this.emitter.dispatchEvent(buildEvent('quote', this.lastQuote))
                 break
             case 'paused':
                 //quotation paused due to inactivity
@@ -149,7 +147,7 @@ export class StellarBrokerClient {
                 break
             case 'tx':
                 if (this.status !== 'trade') {
-                    console.log('Received tx in non-trading state', this.status, raw)
+                    console.log('Received tx in a non-trading state', this.status, raw)
                     return //skip unless trading is in progress
                 }
                 processTxRequest(this, raw)
@@ -201,6 +199,7 @@ export class StellarBrokerClient {
         if (this.status === 'trade')
             throw errors.tradeInProgress()
         this.quoteRequest = validateQuoteRequest(params)
+
         this.status = 'quote'
         this.connect()
             .then(() => {
@@ -214,8 +213,9 @@ export class StellarBrokerClient {
 
     /**
      * Confirm current quote and start trading
+     * @param {string} [account] - Trader account address (overrides value provided in the constructor)
      */
-    confirmQuote() {
+    confirmQuote(account) {
         if (this.status === 'disconnected')
             throw errors.notConnected()
         if (this.status === 'trade')
@@ -226,11 +226,17 @@ export class StellarBrokerClient {
             throw errors.quoteExpired()
         if (this.lastQuote.status !== 'success')
             throw errors.quoteError(this.lastQuote.error || 'quote not available')
-
+        if (account) {
+            this.trader = account
+        }
+        //ensure that a trader account address provided
+        const {trader} = this
+        if (!trader || !StrKey.isValidEd25519PublicKey(trader))
+            throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!trader ? 'missing' : trader))
         this.tradeQuote = this.lastQuote
         this.send({
             type: 'trade',
-            account: this.trader
+            account: trader
         })
         this.status = 'trade'
     }
@@ -330,8 +336,8 @@ function validateEventType(type) {
 
 /**
  * @typedef {object} ClientInitializationParams
- * @property {string} account - Trader account address
  * @property {ClientAuthorizationParams} authorization - Authorization method, either account secret key or an authorization callback
+ * @property {string} [account] - Trader account address
  * @property {string} [partnerKey] - Partner key
  */
 

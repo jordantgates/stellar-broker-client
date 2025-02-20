@@ -1,5 +1,7 @@
-import {hash, Keypair, nativeToScVal, StrKey, TransactionBuilder, xdr} from '@stellar/stellar-sdk'
+import {hash, nativeToScVal, StrKey, TransactionBuilder, xdr} from '@stellar/stellar-sdk'
 import errors from './errors.js'
+
+const networkIdCache = {}
 
 /**
  * @param {StellarBrokerClient} client
@@ -51,8 +53,10 @@ async function authorizeInvocation(client, tx) {
     /** @type {xdr.SorobanAddressCredentials} */
     const addrAuth = auth.credentials().address()
     addrAuth.signatureExpirationLedger(tx.ledgerBounds.maxLedger + 1)
-
-    const networkId = hash(Buffer.from(tx.networkPassphrase))
+    let networkId = networkIdCache[tx.networkPassphrase]
+    if (!networkId) {
+        networkId = networkIdCache[tx.networkPassphrase] = hash(Buffer.from(tx.networkPassphrase))
+    }
     const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
         new xdr.HashIdPreimageSorobanAuthorization({
             networkId,

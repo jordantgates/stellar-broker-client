@@ -43,8 +43,9 @@ export class StellarBrokerClient {
 
     /**
      * Confirm current quote and start trading
+     * @param {string} [account] - Trader account address (overrides value provided in the constructor)
      */
-    confirmQuote(): void;
+    confirmQuote(account?: string): void;
 
     /**
      * Add event listener
@@ -102,17 +103,17 @@ export interface QuoteParams {
 
 export interface ClientInitializationParams {
     /**
+     * Authorization method, either account secret key or an authorization callback
+     */
+    authorization: ClientAuthorizationParams;
+    /**
      * Trader account address
      */
-    account: string;
+    account?: string;
     /**
      * Partner key
      */
     partnerKey?: string;
-    /**
-     * Authorization method, either account secret key or an authorization callback
-     */
-    authorization: ClientAuthorizationParams;
 }
 
 /**
