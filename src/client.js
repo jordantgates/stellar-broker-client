@@ -18,7 +18,9 @@ export class StellarBrokerClient {
         this.emitter = new EventTarget()
         this.network = Networks.PUBLIC
         this.trader = params.account
-        this.authorization = new AuthorizationWrapper(params.authorization)
+        if (params.authorization) {
+            this.authorization = new AuthorizationWrapper(params.authorization)
+        }
     }
 
     /**
@@ -214,8 +216,9 @@ export class StellarBrokerClient {
     /**
      * Confirm current quote and start trading
      * @param {string} [account] - Trader account address (overrides value provided in the constructor)
+     * @param {ClientAuthorizationParams} [authorization] - Authorization params (overrides value provided in the constructor)
      */
-    confirmQuote(account) {
+    confirmQuote(account, authorization) {
         if (this.status === 'disconnected')
             throw errors.notConnected()
         if (this.status === 'trade')
@@ -229,10 +232,14 @@ export class StellarBrokerClient {
         if (account) {
             this.trader = account
         }
-        //ensure that a trader account address provided
+        if (authorization) {
+            this.authorization = new AuthorizationWrapper(authorization)
+        }
         const {trader} = this
-        if (!trader || !StrKey.isValidEd25519PublicKey(trader))
+        if (!trader || !StrKey.isValidEd25519PublicKey(trader)) //ensure that a trader account address provided
             throw errors.invalidQuoteParam('account', 'Invalid trader account address: ' + (!trader ? 'missing' : trader))
+        if (!this.authorization)
+            throw errors.invalidQuoteParam('authorization', 'Client authorization not provided')
         this.tradeQuote = this.lastQuote
         this.send({
             type: 'trade',
@@ -336,9 +343,9 @@ function validateEventType(type) {
 
 /**
  * @typedef {object} ClientInitializationParams
- * @property {ClientAuthorizationParams} authorization - Authorization method, either account secret key or an authorization callback
- * @property {string} [account] - Trader account address
  * @property {string} [partnerKey] - Partner key
+ * @property {string} [account] - Trader account address
+ * @property {ClientAuthorizationParams} [authorization] - Authorization method, either account secret key or an authorization callback
  */
 
 /**
