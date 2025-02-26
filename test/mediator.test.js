@@ -1,4 +1,4 @@
-import {Keypair, StrKey} from '@stellar/stellar-sdk'
+import {Keypair} from '@stellar/stellar-sdk'
 import {Mediator} from '../src/index.js'
 
 describe('mediator', () => {
@@ -52,7 +52,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '12.0000000'
+                startingBalance: '13.0000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -119,6 +119,83 @@ describe('mediator', () => {
         expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(undefined)
     })
 
+    test('init & dispose USDC->XLM', async () => {
+        const sourceKeypair = Keypair.random()
+        const source = sourceKeypair.publicKey()
+        HorizonShim.setAccountInfo(source, [
+            balanceFromAsset(xlm, '5'),
+            balanceFromAsset(usdc, '10')
+        ])
+
+        const mediator = new Mediator(source, usdc, xlm, '10', sourceKeypair.secret())
+        mediator.createHorizon = () => new HorizonShim()
+
+        await mediator.init()
+        let tx = HorizonShim.getLastTx()
+        expect(tx.source).toEqual(source)
+        expect(tx.operations).toEqual([
+            {
+                source,
+                type: 'createAccount',
+                destination: mediator.mediatorAddress,
+                startingBalance: '3.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(usdc),
+                limit: '922337203685.4775807'
+            },
+            {
+                source: source,
+                type: 'payment',
+                destination: mediator.mediatorAddress,
+                asset: lineFromAsset(usdc),
+                amount: '10.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'setOptions',
+                masterWeight: 1,
+                lowThreshold: 1,
+                medThreshold: 1,
+                highThreshold: 1,
+                homeDomain: 'mediator.stellar.broker',
+                signer: {
+                    ed25519PublicKey: source,
+                    weight: 1
+                }
+            }
+        ])
+        expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(source)
+
+        HorizonShim.setAccountInfo(mediator.mediatorAddress, [
+            balanceFromAsset(xlm, '20'),
+            balanceFromAsset(usdc, '0')
+        ], [{key: source, weight: 1}])
+
+        await mediator.dispose()
+
+        tx = HorizonShim.getLastTx()
+
+        expect(tx.source).toEqual(mediator.mediatorAddress)
+        expect(tx.operations).toEqual([
+            {
+                source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(usdc),
+                limit: '0.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'accountMerge',
+                destination: source
+            }
+        ])
+
+        expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(undefined)
+    })
+
     test('init & dispose USDC->AQUA', async () => {
         const sourceKeypair = Keypair.random()
         const source = sourceKeypair.publicKey()
@@ -146,7 +223,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '2.0000000'
+                startingBalance: '3.0000000'
             },
             {
                 source: mediator.mediatorAddress,

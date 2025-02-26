@@ -4,7 +4,7 @@ import {convertToStellarAsset} from './asset.js'
 import {AuthorizationWrapper} from './authorization.js'
 
 //additional XLM amount to cover tx fees
-const feesReserve = '2'
+const feesReserve = '3'
 
 export class Mediator {
     /**
@@ -173,10 +173,12 @@ export class Mediator {
             }
         }))
         //create trustline for buying asset
-        ops.push(Operation.changeTrust({
-            source: this.mediatorAddress,
-            asset: buyingAsset
-        }))
+        if (!buyingAsset.isNative()) {
+            ops.push(Operation.changeTrust({
+                source: this.mediatorAddress,
+                asset: buyingAsset
+            }))
+        }
         //confirm tx
         await this.buildAndSend(sourceAccount, ops)
         //store the record in the localStorage
