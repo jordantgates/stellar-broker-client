@@ -203,10 +203,10 @@ export class Mediator {
                 asset: buyingAsset
             }))
         }
-        //confirm tx
-        await this.buildAndSend(sourceAccount, ops)
         //store the record in the localStorage
         localStorage.setItem(this.storagePrefix + this.mediatorAddress, this.source)
+        //confirm tx
+        await this.buildAndSend(sourceAccount, ops)
         //client will need mediator secret for trading
         return this.mediator.secret()
     }
@@ -222,8 +222,11 @@ export class Mediator {
         }
         //load account
         let account = await this.loadAccount(address)
-        if (!account)
+        if (!account) {
+            //remove reference from local storage
+            localStorage.removeItem(this.storagePrefix + address)
             throw new Error(`Mediator account ${address} doesn't exist on the ledger`)
+        }
 
         if (!account.signers.find(s => s.key === this.source))
             throw new Error(`${address} is not a mediator account for ${this.source}`)
