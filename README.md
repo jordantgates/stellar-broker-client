@@ -131,6 +131,7 @@ directly or create alternative logic based on it.
 ```js
 import {Mediator} from '@stellar-broker/client'
 
+const source = 'GDNDS76YATRWMRQ7SGCI7FG3Y4A2MREDSKWDGLEB75IX5W2T25HA4DS3'
 const sellingAsset = 'XLM'
 const buyingAsset = 'AQUA-GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'
 const sellingAmount = '10'
@@ -157,5 +158,9 @@ console.log('Mediator account disposed')
 //funds from previously created mediator accounts can be recovered like this
 if (mediator.hasObsoleteMediators) {
     await mediator.disposeObsoleteMediators()
+}
+//or using static methods
+if (Mediator.hasObsoleteMediators(source)) {
+    await Mediator.disposeObsoleteMediators(source)
 }
 ```

@@ -5,6 +5,7 @@ import {AuthorizationWrapper} from './authorization.js'
 
 //additional XLM amount to cover tx fees
 const feesReserve = '3'
+const defaultStoragePrefix = 'msb_'
 
 export class Mediator {
     /**
@@ -37,7 +38,9 @@ export class Mediator {
             console.error(e)
             throw new Error('Invalid selling amount')
         }
-        this.authorization = new AuthorizationWrapper(authorization)
+        if (authorization) {
+            this.authorization = new AuthorizationWrapper(authorization)
+        }
     }
 
     /**
@@ -81,15 +84,25 @@ export class Mediator {
      * @type {string}
      * @private
      */
-    storagePrefix = 'msb_'
+    storagePrefix = defaultStoragePrefix
 
     /**
      * Check if there are any non-disposed mediators that belong to lost swap sessions
      * @return {boolean}
      */
     get hasObsoleteMediators() {
+        return this.constructor.hasObsoleteMediators(this.source, this.storagePrefix)
+    }
+
+    /**
+     * Check if there are any non-disposed mediators that belong to lost swap sessions
+     * @param {string} source - Initiator account that created a mediator
+     * @param {string} [storagePrefix] - Local storage key prefix
+     * @return {boolean}
+     */
+    static hasObsoleteMediators(source, storagePrefix = defaultStoragePrefix) {
         return Object.entries(localStorage).some(([key, initiator]) =>
-            initiator === this.source && key.startsWith(this.storagePrefix))
+            initiator === source && key.startsWith(storagePrefix))
     }
 
     /**
@@ -102,6 +115,17 @@ export class Mediator {
                 await this.dispose(key.replace(this.storagePrefix, ''))
             }
         }
+    }
+
+    /**
+     * Retrieve funds from mediator accounts that belong to lost swap sessions
+     * @param {string} source - Initiator account that created a mediator
+     * @param {string} [storagePrefix] - Local storage key prefix
+     * @return {Promise}
+     */
+    static async disposeObsoleteMediators(source, storagePrefix = defaultStoragePrefix) {
+        const wrapper = new Mediator(source, 'XLM', 'XLM', '0', null)
+        await wrapper.disposeObsoleteMediators()
     }
 
     /**
@@ -270,7 +294,7 @@ export class Mediator {
             tx = await this.authorization.authorize(tx)
         }
         //execute the tx
-        const res = await this.createHorizon().submitTransaction(tx, {skipMemoRequiredCheck: true})
+        const res = await this.constructor.createHorizon().submitTransaction(tx, {skipMemoRequiredCheck: true})
         if (!res.successful)
             throw new Error('Failed to create mediator account')
     }
@@ -282,7 +306,7 @@ export class Mediator {
      */
     async loadAccount(address) {
         try {
-            return this.createHorizon().loadAccount(address)
+            return this.constructor.createHorizon().loadAccount(address)
         } catch (e) {
             console.error(e)
         }
@@ -292,7 +316,7 @@ export class Mediator {
      * @return {HorizonServer}
      * @private
      */
-    createHorizon() {
+    static createHorizon() {
         return new Horizon.Server('https://horizon.stellar.org')
     }
 }

@@ -245,9 +245,23 @@ export class Mediator {
     get hasObsoleteMediators(): boolean;
 
     /**
+     * Check if there are any non-disposed mediators that belong to lost swap sessions
+     * @param source - Initiator account that created a mediator
+     * @param [storagePrefix] - Local storage key prefix
+     */
+    static hasObsoleteMediators(source: string, storagePrefix? :string): boolean
+
+    /**
      * Retrieve funds from mediator accounts that belong to lost swap sessions
      */
     disposeObsoleteMediators(): Promise<void>;
+
+    /**
+     * Retrieve funds from mediator accounts that belong to lost swap sessions
+     * @param source - Initiator account that created a mediator
+     * @param [storagePrefix] - Local storage key prefix
+     */
+    static disposeObsoleteMediators(source:string, storagePrefix?:string): Promise<void>;
 
     /**
      * Create mediator account and deposit tokens to sell

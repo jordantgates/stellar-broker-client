@@ -2,8 +2,14 @@ import {Keypair} from '@stellar/stellar-sdk'
 import {Mediator} from '../src/index.js'
 
 describe('mediator', () => {
+    const issuer = Keypair.random().publicKey()
+    const xlm = 'XLM'
+    const aqua = 'AQUA-' + issuer
+    const usdc = 'USDC-' + issuer
+
     beforeAll(() => {
         global.localStorage = new LocalStorageShim()
+        Mediator.createHorizon = () => new HorizonShim()
     })
 
     afterAll(() => {
@@ -15,10 +21,6 @@ describe('mediator', () => {
         HorizonShim.clear()
     })
 
-    const xlm = 'XLM'
-    const aqua = 'AQUA-GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'
-    const usdc = 'USDC-GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'
-
     test('init & dispose XLM->AQUA', async () => {
         const sourceKeypair = Keypair.random()
         const source = sourceKeypair.publicKey()
@@ -28,7 +30,6 @@ describe('mediator', () => {
         ])
 
         const mediator = new Mediator(source, xlm, aqua, '10', sourceKeypair.secret())
-        mediator.createHorizon = () => new HorizonShim()
 
         //should have enough XLM to sell + cover fees
         await expect(async () => await mediator.init()).rejects.toThrow(/Insufficient XLM balance/)
@@ -128,7 +129,6 @@ describe('mediator', () => {
         ])
 
         const mediator = new Mediator(source, usdc, xlm, '10', sourceKeypair.secret())
-        mediator.createHorizon = () => new HorizonShim()
 
         await mediator.init()
         let tx = HorizonShim.getLastTx()
@@ -205,7 +205,6 @@ describe('mediator', () => {
         ])
 
         const mediator = new Mediator(source, usdc, aqua, '10', sourceKeypair.secret())
-        mediator.createHorizon = () => new HorizonShim()
 
         //should have enough tokens to sell
         await expect(async () => await mediator.init()).rejects.toThrow(/Insufficient selling asset balance/)
@@ -310,7 +309,6 @@ describe('mediator', () => {
         ])
 
         const mediator = new Mediator(source, usdc, aqua, '10', sourceKeypair.secret())
-        mediator.createHorizon = () => new HorizonShim()
 
         expect(mediator.hasObsoleteMediators).toEqual(false)
 
@@ -331,6 +329,38 @@ describe('mediator', () => {
         await mediator.disposeObsoleteMediators()
 
         expect(mediator.hasObsoleteMediators).toEqual(false)
+        expect(HorizonShim.txCount).toEqual(2)
+        expect(global.localStorage.count).toEqual(0)
+    })
+
+    test('dispose obsolete static', async () => {
+        const sourceKeypair = Keypair.random()
+        const source = sourceKeypair.publicKey()
+        HorizonShim.setAccountInfo(source, [
+            balanceFromAsset(xlm, '10'),
+            balanceFromAsset(usdc, '10'),
+            balanceFromAsset(aqua, '0')
+        ])
+
+        expect(Mediator.hasObsoleteMediators(source)).toEqual(false)
+
+        const obsoleteMediators = [Keypair.random().publicKey(), Keypair.random().publicKey()]
+        for (let i = 0; i < obsoleteMediators.length; i++) {
+            const obsolete = obsoleteMediators[i]
+            localStorage.setItem(formatLsKey(obsolete), source)
+
+            HorizonShim.setAccountInfo(obsolete, [
+                balanceFromAsset(xlm, '1'),
+                balanceFromAsset(aqua, '1000')
+            ], [{key: source, weight: 1}])
+        }
+
+        expect(Mediator.hasObsoleteMediators(source)).toEqual(true)
+        expect(HorizonShim.txCount).toEqual(0)
+
+        await Mediator.disposeObsoleteMediators(source)
+
+        expect(Mediator.hasObsoleteMediators(source)).toEqual(false)
         expect(HorizonShim.txCount).toEqual(2)
         expect(global.localStorage.count).toEqual(0)
     })
