@@ -358,7 +358,7 @@ describe('mediator', () => {
         expect(Mediator.hasObsoleteMediators(source)).toEqual(true)
         expect(HorizonShim.txCount).toEqual(0)
 
-        await Mediator.disposeObsoleteMediators(source)
+        await Mediator.disposeObsoleteMediators(source, sourceKeypair.secret())
 
         expect(Mediator.hasObsoleteMediators(source)).toEqual(false)
         expect(HorizonShim.txCount).toEqual(2)

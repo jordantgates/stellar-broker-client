@@ -249,7 +249,7 @@ export class Mediator {
      * @param source - Initiator account that created a mediator
      * @param [storagePrefix] - Local storage key prefix
      */
-    static hasObsoleteMediators(source: string, storagePrefix? :string): boolean
+    static hasObsoleteMediators(source: string, storagePrefix?: string): boolean
 
     /**
      * Retrieve funds from mediator accounts that belong to lost swap sessions
@@ -259,9 +259,10 @@ export class Mediator {
     /**
      * Retrieve funds from mediator accounts that belong to lost swap sessions
      * @param source - Initiator account that created a mediator
+     * @param authorization - Authorization callback or secret key
      * @param [storagePrefix] - Local storage key prefix
      */
-    static disposeObsoleteMediators(source:string, storagePrefix?:string): Promise<void>;
+    static disposeObsoleteMediators(source: string, authorization: ClientAuthorizationParams, storagePrefix?: string): Promise<void>;
 
     /**
      * Create mediator account and deposit tokens to sell

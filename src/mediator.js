@@ -14,7 +14,7 @@ export class Mediator {
      * @param {string|Asset} sellingAsset - Identifier of the asset to sell
      * @param {string|Asset} buyingAsset - Identifier of the asset to buy
      * @param {string} sellingAmount - Asset amount to sell
-     * @param {ClientAuthorizationParams} authorization - Authorization
+     * @param {ClientAuthorizationParams} authorization - Authorization callback or secret key
      */
     constructor(source, sellingAsset, buyingAsset, sellingAmount, authorization) {
         if (!StrKey.isValidEd25519PublicKey(source))
@@ -38,9 +38,7 @@ export class Mediator {
             console.error(e)
             throw new Error('Invalid selling amount')
         }
-        if (authorization) {
-            this.authorization = new AuthorizationWrapper(authorization)
-        }
+        this.authorization = new AuthorizationWrapper(authorization)
     }
 
     /**
@@ -120,11 +118,13 @@ export class Mediator {
     /**
      * Retrieve funds from mediator accounts that belong to lost swap sessions
      * @param {string} source - Initiator account that created a mediator
+     * @param {ClientAuthorizationParams} authorization - Authorization callback or secret key
      * @param {string} [storagePrefix] - Local storage key prefix
      * @return {Promise}
      */
-    static async disposeObsoleteMediators(source, storagePrefix = defaultStoragePrefix) {
-        const wrapper = new Mediator(source, 'XLM', 'XLM', '0', null)
+    static async disposeObsoleteMediators(source, authorization, storagePrefix = defaultStoragePrefix) {
+        const wrapper = new Mediator(source, 'XLM', 'XLM', '0', authorization)
+        wrapper.storagePrefix = storagePrefix
         await wrapper.disposeObsoleteMediators()
     }
 

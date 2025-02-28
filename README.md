@@ -161,6 +161,6 @@ if (mediator.hasObsoleteMediators) {
 }
 //or using static methods
 if (Mediator.hasObsoleteMediators(source)) {
-    await Mediator.disposeObsoleteMediators(source)
+    await Mediator.disposeObsoleteMediators(source, signTx)
 }
 ```
