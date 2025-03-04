@@ -299,6 +299,101 @@ describe('mediator', () => {
         expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(undefined)
     })
 
+    test('init & dispose multisig', async () => {
+        const sourceKeypair = Keypair.random()
+        const source = sourceKeypair.publicKey()
+        const signer1 = Keypair.random().publicKey()
+        const signer2 = Keypair.random().publicKey()
+        HorizonShim.setAccountInfo(source,
+            [balanceFromAsset(xlm, '10'), balanceFromAsset(usdc, '10')],
+            [HorizonShim.signer(source, 0), HorizonShim.signer(signer1, 2), HorizonShim.signer(signer2, 2)],
+            [2, 3, 4])
+
+        const mediator = new Mediator(source, usdc, xlm, '10', sourceKeypair.secret())
+
+        await mediator.init()
+        let tx = HorizonShim.getLastTx()
+        expect(tx.source).toEqual(source)
+        expect(tx.operations).toEqual([
+            {
+                source,
+                type: 'createAccount',
+                destination: mediator.mediatorAddress,
+                startingBalance: '4.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(usdc),
+                limit: '922337203685.4775807'
+            },
+            {
+                source: source,
+                type: 'payment',
+                destination: mediator.mediatorAddress,
+                asset: lineFromAsset(usdc),
+                amount: '10.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'setOptions',
+                masterWeight: 4,
+                lowThreshold: 2,
+                medThreshold: 3,
+                highThreshold: 4,
+                homeDomain: 'mediator.stellar.broker',
+                inflationDest: source,
+                signer: {
+                    ed25519PublicKey: source,
+                    weight: 1
+                }
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'setOptions',
+                signer: {
+                    ed25519PublicKey: signer1,
+                    weight: 2
+                }
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'setOptions',
+                signer: {
+                    ed25519PublicKey: signer2,
+                    weight: 2
+                }
+            }
+        ])
+        expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(source)
+
+        HorizonShim.setAccountInfo(mediator.mediatorAddress, [
+            balanceFromAsset(xlm, '20'),
+            balanceFromAsset(usdc, '0')
+        ], [{key: source, weight: 1}, {key: signer1, weight: 2}, {key: signer2, weight: 2}])
+
+        await mediator.dispose()
+
+        tx = HorizonShim.getLastTx()
+
+        expect(tx.source).toEqual(mediator.mediatorAddress)
+        expect(tx.operations).toEqual([
+            {
+                source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(usdc),
+                limit: '0.0000000'
+            },
+            {
+                source: mediator.mediatorAddress,
+                type: 'accountMerge',
+                destination: source
+            }
+        ])
+
+        expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(undefined)
+    })
+
     test('dispose obsolete', async () => {
         const sourceKeypair = Keypair.random()
         const source = sourceKeypair.publicKey()
@@ -429,14 +524,16 @@ class HorizonShim {
     /**
      * @param {string} address
      * @param {BalanceLine[]} balances
-     * @param {AccountSigner[]} signers
+     * @param {AccountSigner[]} [signers]
+     * @param {[]} thresholds
      */
-    static setAccountInfo(address, balances, signers = []) {
+    static setAccountInfo(address, balances, signers, thresholds) {
         this.accounts[address] = {
             id: address,
             sequence: '1',
             balances,
-            signers,
+            signers: signers || [this.signer(address, 0)],
+            thresholds: this.thresholds(thresholds || [0, 0, 0]),
             accountId() {
                 return address
             },
@@ -462,5 +559,21 @@ class HorizonShim {
 
     static clear() {
         this.txHistory = []
+    }
+
+    static signer(key, weight) {
+        return {
+            key,
+            weight,
+            type: 'ed25519_public_key'
+        }
+    }
+
+    static thresholds([low, med, high]) {
+        return {
+            low_threshold: low,
+            med_threshold: med,
+            high_threshold: high
+        }
     }
 }

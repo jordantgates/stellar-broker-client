@@ -1,10 +1,10 @@
-import {Asset, Keypair, Memo, Operation, TransactionBuilder, Horizon, Networks, StrKey} from '@stellar/stellar-sdk'
+import {Asset, Keypair, Memo, Operation, TransactionBuilder, Horizon, Networks, StrKey, sign} from '@stellar/stellar-sdk'
 import {fromStroops, toStroops} from './stroops.js'
 import {convertToStellarAsset} from './asset.js'
 import {AuthorizationWrapper} from './authorization.js'
 
 //additional XLM amount to cover tx fees
-const feesReserve = '3'
+const defaultFeesReserve = 3
 const defaultStoragePrefix = 'msb_'
 
 export class Mediator {
@@ -136,10 +136,13 @@ export class Mediator {
         const sourceAccount = await this.loadAccount(this.source)
         if (!sourceAccount)
             throw new Error('Mediator account doesn\'t exist on the ledger')
+        //calculate fees reserve + account entries reserve
+        const feesReserve = defaultFeesReserve + 0.5 * (sourceAccount.signers.length - 1)
         const ops = []
         //create new random keypair for the trade
         this.mediator = Keypair.random()
         this.mediatorAddress = this.mediator.publicKey()
+        //create mediator account and deposit funds
         const {sellingAsset, buyingAsset} = this
         if (sellingAsset.isNative()) { //for XLM total amount should include fee reserves
             const amount = this.sellingAmount + BigInt(feesReserve * 10000000)
@@ -155,13 +158,13 @@ export class Mediator {
         } else {
             //check available XLM balance
             const xlmBalance = findTrustline(sourceAccount, Asset.native())
-            if (xlmBalance.balance < parseInt(feesReserve))
+            if (parseFloat(xlmBalance.balance) < feesReserve)
                 throw new Error('Insufficient XLM balance for potential trading fees')
             //create mediator account
             ops.push(Operation.createAccount({
                 source: this.source,
                 destination: this.mediatorAddress,
-                startingBalance: feesReserve // for tx fees
+                startingBalance: feesReserve.toString() // for tx fees
             }))
             //check available XLM balance
             const sellingTrustline = findTrustline(sourceAccount, this.sellingAsset)
@@ -183,19 +186,49 @@ export class Mediator {
                 amount: fromStroops(this.sellingAmount)
             }))
         }
-        //add source account as a signer
-        ops.push(Operation.setOptions({
-            source: this.mediatorAddress,
-            homeDomain: 'mediator.stellar.broker',
-            masterWeight: 1,
-            highThreshold: 1,
-            medThreshold: 1,
-            lowThreshold: 1,
-            signer: {
-                ed25519PublicKey: this.source,
-                weight: 1
+
+        if (sourceAccount.signers.length > 1) { //multisig or delegated schema
+            let {thresholds, signers} = sourceAccount
+            signers = signers.filter(signer => signer.type === 'ed25519_public_key')
+            //add source account as a signer
+            ops.push(Operation.setOptions({
+                source: this.mediatorAddress,
+                inflationDest: this.source, //store source account to the inflation dest
+                homeDomain: 'mediator.stellar.broker',
+                masterWeight: Math.max(thresholds.high_threshold, thresholds.med_threshold), //own signer always has the highest weight
+                highThreshold: thresholds.high_threshold,
+                medThreshold: thresholds.med_threshold,
+                lowThreshold: thresholds.low_threshold,
+                signer: { //add first signer
+                    ed25519PublicKey: signers[0].key,
+                    weight: Math.max(1, signers[0].weight)
+                }
+            }))
+            //add all other signers
+            for (let i = 1; i < signers.length; i++) {
+                ops.push(Operation.setOptions({
+                    source: this.mediatorAddress,
+                    signer: {
+                        ed25519PublicKey: signers[i].key,
+                        weight: Math.max(1, signers[i].weight)
+                    }
+                }))
             }
-        }))
+        } else { //simple schema
+            ops.push(Operation.setOptions({
+                source: this.mediatorAddress,
+                homeDomain: 'mediator.stellar.broker',
+                masterWeight: 1,
+                highThreshold: 1,
+                medThreshold: 1,
+                lowThreshold: 1,
+                signer: { //add source account as a signer
+                    ed25519PublicKey: this.source,
+                    weight: 1
+                }
+            }))
+        }
+
         //create trustline for buying asset
         if (!buyingAsset.isNative()) {
             ops.push(Operation.changeTrust({
@@ -221,18 +254,18 @@ export class Mediator {
             address = this.mediatorAddress
         }
         //load account
-        let account = await this.loadAccount(address)
-        if (!account) {
+        let mediatorAccount = await this.loadAccount(address)
+        if (!mediatorAccount) {
             //remove reference from local storage
             localStorage.removeItem(this.storagePrefix + address)
             throw new Error(`Mediator account ${address} doesn't exist on the ledger`)
         }
 
-        if (!account.signers.find(s => s.key === this.source))
+        if (!mediatorAccount.signers.find(s => s.key === this.source))
             throw new Error(`${address} is not a mediator account for ${this.source}`)
         const ops = []
         //remove trustlines for each account balance
-        for (const balance of account.balances) {
+        for (const balance of mediatorAccount.balances) {
             if (balance.asset_type === 'native')
                 continue //skip XLM trustline - merge will handle the transfer
             const asset = convertToStellarAsset(balance)
@@ -258,9 +291,9 @@ export class Mediator {
             destination: this.source
         }))
         if (this.mediatorAddress !== address) {
-            account = await this.loadAccount(this.source)
+            mediatorAccount = await this.loadAccount(this.source)
         }
-        await this.buildAndSend(account, ops)
+        await this.buildAndSend(mediatorAccount, ops)
         //remove reference from local storage
         localStorage.removeItem(this.storagePrefix + address)
     }
