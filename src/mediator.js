@@ -195,7 +195,7 @@ export class Mediator {
                 source: this.mediatorAddress,
                 inflationDest: this.source, //store source account to the inflation dest
                 homeDomain: 'mediator.stellar.broker',
-                masterWeight: Math.max(thresholds.high_threshold, thresholds.med_threshold), //own signer always has the highest weight
+                masterWeight: Math.max(1, thresholds.high_threshold, thresholds.med_threshold), //own signer always has the highest weight
                 highThreshold: thresholds.high_threshold,
                 medThreshold: thresholds.med_threshold,
                 lowThreshold: thresholds.low_threshold,
@@ -208,7 +208,7 @@ export class Mediator {
             for (let i = 1; i < signers.length; i++) {
                 ops.push(Operation.setOptions({
                     source: this.mediatorAddress,
-                    signer: {
+                    signer: { //cope signers and weights
                         ed25519PublicKey: signers[i].key,
                         weight: Math.max(1, signers[i].weight)
                     }
