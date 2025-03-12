@@ -1,10 +1,10 @@
-import {Asset, Keypair, Memo, Operation, TransactionBuilder, Horizon, Networks, StrKey, sign} from '@stellar/stellar-sdk'
+import {Asset, Keypair, Memo, Operation, TransactionBuilder, Horizon, Networks, StrKey, TimeoutInfinite} from '@stellar/stellar-sdk'
 import {fromStroops, toStroops} from './stroops.js'
 import {convertToStellarAsset} from './asset.js'
 import {AuthorizationWrapper} from './authorization.js'
 
 //additional XLM amount to cover tx fees
-const defaultFeesReserve = 3
+const defaultFeesReserve = 2.5
 const defaultStoragePrefix = 'msb_'
 
 export class Mediator {
@@ -137,7 +137,8 @@ export class Mediator {
         if (!sourceAccount)
             throw new Error('Mediator account doesn\'t exist on the ledger')
         //calculate fees reserve + account entries reserve
-        const feesReserve = defaultFeesReserve + 0.5 * (sourceAccount.signers.length - 1)
+        const subentries = sourceAccount.signers.length - 1 + [this.sellingAsset, this.buyingAsset].filter(a => !a.isNative()).length
+        const feesReserve = defaultFeesReserve + 0.5 * subentries
         const ops = []
         //create new random keypair for the trade
         this.mediator = Keypair.random()
@@ -310,7 +311,7 @@ export class Mediator {
             fee: '1000000',
             networkPassphrase: Networks.PUBLIC
         })
-        builder.setTimeout(30)
+        builder.setTimeout(TimeoutInfinite)
         //add memo if needed
         if (memo) {
             builder.addMemo(Memo.text(memo))

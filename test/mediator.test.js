@@ -222,7 +222,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '3.0000000'
+                startingBalance: '3.5000000'
             },
             {
                 source: mediator.mediatorAddress,
