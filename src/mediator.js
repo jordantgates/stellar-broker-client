@@ -4,7 +4,7 @@ import {convertToStellarAsset} from './asset.js'
 import {AuthorizationWrapper} from './authorization.js'
 
 //additional XLM amount to cover tx fees
-const defaultFeesReserve = 2.5
+const defaultFeesReserve = 3
 const defaultStoragePrefix = 'msb_'
 
 export class Mediator {

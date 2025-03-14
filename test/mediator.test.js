@@ -53,7 +53,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '13.0000000'
+                startingBalance: '13.5000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -138,7 +138,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '3.0000000'
+                startingBalance: '3.5000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -222,7 +222,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '3.5000000'
+                startingBalance: '4.0000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -319,7 +319,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '4.0000000'
+                startingBalance: '4.5000000'
             },
             {
                 source: mediator.mediatorAddress,
