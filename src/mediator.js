@@ -3,8 +3,6 @@ import {fromStroops, toStroops} from './stroops.js'
 import {convertToStellarAsset} from './asset.js'
 import {AuthorizationWrapper} from './authorization.js'
 
-//additional XLM amount to cover tx fees
-const defaultFeesReserve = 3
 const defaultStoragePrefix = 'msb_'
 
 export class Mediator {
@@ -15,8 +13,9 @@ export class Mediator {
      * @param {string|Asset} buyingAsset - Identifier of the asset to buy
      * @param {string} sellingAmount - Asset amount to sell
      * @param {ClientAuthorizationParams} authorization - Authorization callback or secret key
+     * @param {number} [reserveFeeAmount] - Amount reserved to cover tx fees (all unused funds will be refunded)
      */
-    constructor(source, sellingAsset, buyingAsset, sellingAmount, authorization) {
+    constructor(source, sellingAsset, buyingAsset, sellingAmount, authorization, reserveFeeAmount = 5) {
         if (!StrKey.isValidEd25519PublicKey(source))
             throw new Error('Invalid source account')
         this.source = source
@@ -39,6 +38,7 @@ export class Mediator {
             throw new Error('Invalid selling amount')
         }
         this.authorization = new AuthorizationWrapper(authorization)
+        this.reserveFeeAmount = reserveFeeAmount
     }
 
     /**
@@ -83,6 +83,11 @@ export class Mediator {
      * @private
      */
     storagePrefix = defaultStoragePrefix
+    /**
+     * @type {number}
+     * @private
+     */
+    reserveFeeAmount
 
     /**
      * Check if there are any non-disposed mediators that belong to lost swap sessions
@@ -137,8 +142,8 @@ export class Mediator {
         if (!sourceAccount)
             throw new Error('Mediator account doesn\'t exist on the ledger')
         //calculate fees reserve + account entries reserve
-        const subentries = sourceAccount.signers.length - 1 + [this.sellingAsset, this.buyingAsset].filter(a => !a.isNative()).length
-        const feesReserve = defaultFeesReserve + 0.5 * subentries
+        const subentries = 2 + sourceAccount.signers.length - 1 + [this.sellingAsset, this.buyingAsset].filter(a => !a.isNative()).length
+        const feesReserve = this.reserveFeeAmount + 0.5 * subentries
         const ops = []
         //create new random keypair for the trade
         this.mediator = Keypair.random()

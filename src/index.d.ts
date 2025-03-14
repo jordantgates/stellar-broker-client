@@ -226,8 +226,9 @@ export class Mediator {
      * @param buyingAsset - Asset to buy
      * @param sellingAmount - Amount to sell
      * @param authorization - Authorization callback or secret key
+     * @param [reserveFeeAmount] - Amount reserved to cover tx fees (all unused funds will be refunded)
      */
-    constructor(source: string, sellingAsset: string | Asset, buyingAsset: string | Asset, sellingAmount: string, authorization: ClientAuthorizationParams)
+    constructor(source: string, sellingAsset: string | Asset, buyingAsset: string | Asset, sellingAmount: string, authorization: ClientAuthorizationParams, reserveFeeAmount?: number)
 
     readonly source: string;
 

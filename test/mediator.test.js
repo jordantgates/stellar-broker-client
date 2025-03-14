@@ -53,7 +53,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '13.5000000'
+                startingBalance: '16.5000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -124,7 +124,7 @@ describe('mediator', () => {
         const sourceKeypair = Keypair.random()
         const source = sourceKeypair.publicKey()
         HorizonShim.setAccountInfo(source, [
-            balanceFromAsset(xlm, '5'),
+            balanceFromAsset(xlm, '10'),
             balanceFromAsset(usdc, '10')
         ])
 
@@ -138,7 +138,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '3.5000000'
+                startingBalance: '6.5000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -222,7 +222,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '4.0000000'
+                startingBalance: '7.0000000'
             },
             {
                 source: mediator.mediatorAddress,
@@ -319,7 +319,7 @@ describe('mediator', () => {
                 source,
                 type: 'createAccount',
                 destination: mediator.mediatorAddress,
-                startingBalance: '4.5000000'
+                startingBalance: '7.5000000'
             },
             {
                 source: mediator.mediatorAddress,
