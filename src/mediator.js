@@ -192,6 +192,20 @@ export class Mediator {
                 amount: fromStroops(this.sellingAmount)
             }))
         }
+        //create trustline for buying asset
+        if (!buyingAsset.isNative()) {
+            ops.push(Operation.changeTrust({
+                source: this.mediatorAddress,
+                asset: buyingAsset
+            }))
+            //if source account itself doesn't have trustline for buying asset
+            if (!findTrustline(sourceAccount, buyingAsset)) {
+                ops.push(Operation.changeTrust({
+                    source: this.source,
+                    asset: buyingAsset
+                }))
+            }
+        }
 
         if (sourceAccount.signers.length > 1) { //multisig or delegated schema
             let {thresholds, signers} = sourceAccount
@@ -235,13 +249,6 @@ export class Mediator {
             }))
         }
 
-        //create trustline for buying asset
-        if (!buyingAsset.isNative()) {
-            ops.push(Operation.changeTrust({
-                source: this.mediatorAddress,
-                asset: buyingAsset
-            }))
-        }
         //store the record in the localStorage
         localStorage.setItem(this.storagePrefix + this.mediatorAddress, this.source)
         //confirm tx

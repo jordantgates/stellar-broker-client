@@ -57,6 +57,12 @@ describe('mediator', () => {
             },
             {
                 source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(aqua),
+                limit: '922337203685.4775807'
+            },
+            {
+                source: mediator.mediatorAddress,
                 type: 'setOptions',
                 masterWeight: 1,
                 lowThreshold: 1,
@@ -67,12 +73,6 @@ describe('mediator', () => {
                     ed25519PublicKey: source,
                     weight: 1
                 }
-            },
-            {
-                source: mediator.mediatorAddress,
-                type: 'changeTrust',
-                line: lineFromAsset(aqua),
-                limit: '922337203685.4775807'
             }
         ])
         expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(source)
@@ -239,6 +239,12 @@ describe('mediator', () => {
             },
             {
                 source: mediator.mediatorAddress,
+                type: 'changeTrust',
+                line: lineFromAsset(aqua),
+                limit: '922337203685.4775807'
+            },
+            {
+                source: mediator.mediatorAddress,
                 type: 'setOptions',
                 masterWeight: 1,
                 lowThreshold: 1,
@@ -249,12 +255,6 @@ describe('mediator', () => {
                     ed25519PublicKey: source,
                     weight: 1
                 }
-            },
-            {
-                source: mediator.mediatorAddress,
-                type: 'changeTrust',
-                line: lineFromAsset(aqua),
-                limit: '922337203685.4775807'
             }
         ])
         expect(localStorage[formatLsKey(mediator.mediatorAddress)]).toEqual(source)
