@@ -176,8 +176,6 @@ export class Mediator {
             const sellingTrustline = findTrustline(sourceAccount, this.sellingAsset)
             if (!sellingTrustline || toStroops(sellingTrustline.balance) < this.sellingAmount)
                 throw new Error('Insufficient selling asset balance')
-            if (!findTrustline(sourceAccount, this.buyingAsset))
-                throw new Error('Source account doesn\'t have buying asset trustline')
             //TODO: check authorizations
             //create trustline for selling asset
             ops.push(Operation.changeTrust({
